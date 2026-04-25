@@ -21,8 +21,8 @@
         * { 
             box-sizing: border-box; 
             font-family: 'PingFang TC', 'Microsoft JhengHei', serif; 
-            -webkit-tap-highlight-color: transparent; /* 移除手機點擊閃爍 */
-            touch-action: manipulation; /* 提升觸控反應速度 */
+            -webkit-tap-highlight-color: transparent; 
+            touch-action: manipulation; 
         }
         
         body { 
@@ -41,7 +41,6 @@
             border-radius: 20px;
         }
         
-        /* 開始設定畫面 */
         #setup-screen {
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             height: 100vh; width: 100vw; z-index: 200; position: absolute;
@@ -62,17 +61,14 @@
         }
         button:hover, button:active { background: #f8e5b4; color: #0a0a1a; box-shadow: 0 0 15px rgba(248, 229, 180, 0.5); }
 
-        /* 遊戲主要畫面 */
         #game-screen { display: none; height: 100vh; width: 100vw; position: relative; }
         
-        /* 狀態列 */
         #status-bar {
             position: absolute; top: max(20px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
             padding: 10px 25px; font-size: 15px; letter-spacing: 1px;
             color: #ddd; z-index: 10; white-space: nowrap;
         }
 
-        /* 牌堆區 */
         @keyframes float {
             0% { transform: translateY(0px); }
             50% { transform: translateY(-10px); }
@@ -96,11 +92,11 @@
         .deck-visual:active { transform: scale(0.95); }
         .click-hint { position: absolute; bottom: -50px; width: 100%; text-align: center; color: #aaa; font-size: 16px; letter-spacing: 2px;}
 
-        /* 底部按鈕 */
+        /* 底層按鈕區（只保留重新洗牌） */
         #controls {
             position: absolute; bottom: 0; width: 100%;
-            padding-bottom: max(30px, env(safe-area-inset-bottom)); /* 適應 iPhone 底部橫條 */
-            display: flex; justify-content: center; gap: 15px; z-index: 10;
+            padding-bottom: max(30px, env(safe-area-inset-bottom)); 
+            display: flex; justify-content: center; z-index: 10;
         }
         #controls button { padding: 12px 24px; font-size: 16px; }
 
@@ -111,6 +107,18 @@
             z-index: 100; justify-content: center; align-items: center; flex-direction: column;
         }
         
+        /* 修復後的上層按鈕（收起卡片） */
+        #next-btn {
+            display: none; 
+            position: absolute; 
+            bottom: max(40px, env(safe-area-inset-bottom)); /* 固定在最上方遮罩的底部 */
+            background: #f8e5b4; 
+            color: #0a0a1a; 
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(248, 229, 180, 0.3);
+            z-index: 101; /* 確保在所有物件最上層 */
+        }
+
         .card-wrapper {
             width: 85vw; max-width: 380px; aspect-ratio: 2.2 / 3.5;
             perspective: 1500px; cursor: pointer; margin-bottom: 20px;
@@ -144,7 +152,6 @@
 
         .overlay-hint { color: rgba(255,255,255,0.8); font-size: 16px; letter-spacing: 2px; }
 
-        /* ===== iPad 與大螢幕專屬優化 ===== */
         @media (min-width: 768px) {
             .setup-title { font-size: 48px; }
             .setup-subtitle { font-size: 20px; }
@@ -154,7 +161,7 @@
             .card-title { font-size: 30px; margin-bottom: 35px;}
             .card-text { font-size: 24px; line-height: 1.8; }
             .card-level { font-size: 18px; padding: 8px 24px;}
-            #controls button { padding: 18px 36px; font-size: 20px; }
+            button { padding: 18px 36px; font-size: 20px; }
         }
     </style>
 </head>
@@ -185,7 +192,6 @@
         </div>
 
         <div id="controls">
-            <button onclick="closeFullscreen()" id="next-btn" style="display:none; background:#f8e5b4; color:#0a0a1a; font-weight:bold;">完成任務 / 收起卡片</button>
             <button onclick="location.reload()" style="border-color: #555; color: #888;">重新洗牌</button>
         </div>
     </div>
@@ -202,6 +208,7 @@
             </div>
         </div>
         <div class="overlay-hint" id="overlay-hint">輕觸卡牌 翻開心跳</div>
+        <button onclick="closeFullscreen()" id="next-btn">完成任務 / 收起卡片</button>
     </div>
 
 <script>
