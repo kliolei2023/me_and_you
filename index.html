@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>心動航線：從遠方到身邊</title>
+    <style>
+        :root {
+            --bg-dark: #0a0a1a;
+            --bg-light: #1a1a3a;
+            --card-back-bg: linear-gradient(135deg, #111122 0%, #2a1b4d 100%);
+            --lv1-glow: rgba(135, 206, 250, 0.6);
+            --lv1-bg: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+            --lv2-glow: rgba(255, 165, 0, 0.6);
+            --lv2-bg: linear-gradient(135deg, #ffedd5 0%, #fed7aa 100%);
+            --lv3-glow: rgba(220, 20, 60, 0.6);
+            --lv3-bg: linear-gradient(135deg, #ffe4e6 0%, #fecdd3 100%);
+        }
+        
+        * { 
+            box-sizing: border-box; 
+            font-family: 'PingFang TC', 'Microsoft JhengHei', serif; 
+            -webkit-tap-highlight-color: transparent; /* 移除手機點擊閃爍 */
+            touch-action: manipulation; /* 提升觸控反應速度 */
+        }
+        
+        body { 
+            margin: 0; padding: 0; 
+            background: radial-gradient(circle at center, var(--bg-light) 0%, var(--bg-dark) 100%);
+            color: #fff;
+            overflow: hidden; 
+            display: flex; flex-direction: column; height: 100vh;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+        }
+        
+        /* 開始設定畫面 */
+        #setup-screen {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            height: 100vh; width: 100vw; z-index: 200; position: absolute;
+            background: inherit; text-align: center; padding: 20px;
+        }
+        .setup-title { font-size: 32px; color: #f8e5b4; margin-bottom: 10px; font-weight: 300; letter-spacing: 2px;}
+        .setup-subtitle { font-size: 16px; color: #aaa; margin-bottom: 40px; }
+        
+        .file-input-wrapper { 
+            margin-bottom: 40px; padding: 20px; width: 90%; max-width: 400px;
+            transition: all 0.3s ease;
+        }
+        
+        button {
+            padding: 16px 40px; font-size: 18px; border: 1px solid #f8e5b4; border-radius: 30px;
+            background: transparent; color: #f8e5b4; cursor: pointer; transition: 0.4s;
+            letter-spacing: 1px;
+        }
+        button:hover, button:active { background: #f8e5b4; color: #0a0a1a; box-shadow: 0 0 15px rgba(248, 229, 180, 0.5); }
+
+        /* 遊戲主要畫面 */
+        #game-screen { display: none; height: 100vh; width: 100vw; position: relative; }
+        
+        /* 狀態列 */
+        #status-bar {
+            position: absolute; top: max(20px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+            padding: 10px 25px; font-size: 15px; letter-spacing: 1px;
+            color: #ddd; z-index: 10; white-space: nowrap;
+        }
+
+        /* 牌堆區 */
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+        #deck-container {
+            flex: 1; display: flex; align-items: center; justify-content: center;
+            height: 80vh; cursor: pointer; animation: float 4s ease-in-out infinite;
+        }
+        .deck-visual {
+            width: 55vw; max-width: 260px; aspect-ratio: 2 / 3; border-radius: 15px;
+            border: 6px solid #e0e0e0; box-shadow: 0 15px 35px rgba(0,0,0,0.5), inset 0 0 20px rgba(0,0,0,0.8);
+            background: var(--card-back-bg); background-size: cover; background-position: center;
+            position: relative; transition: transform 0.2s;
+        }
+        .deck-visual::after, .deck-visual::before {
+            content: ''; position: absolute; width: 100%; height: 100%; border-radius: 15px; background-size: cover; background-position: center;
+        }
+        .deck-visual::after { top: 4px; left: 4px; border: 2px solid rgba(255,255,255,0.3); background: var(--card-back-bg); z-index: -1; }
+        .deck-visual::before { top: 8px; left: 8px; border: 1px solid rgba(255,255,255,0.2); background: var(--card-back-bg); z-index: -2; }
+        .deck-visual:active { transform: scale(0.95); }
+        .click-hint { position: absolute; bottom: -50px; width: 100%; text-align: center; color: #aaa; font-size: 16px; letter-spacing: 2px;}
+
+        /* 底部按鈕 */
+        #controls {
+            position: absolute; bottom: 0; width: 100%;
+            padding-bottom: max(30px, env(safe-area-inset-bottom)); /* 適應 iPhone 底部橫條 */
+            display: flex; justify-content: center; gap: 15px; z-index: 10;
+        }
+        #controls button { padding: 12px 24px; font-size: 16px; }
+
+        /* 全螢幕翻牌區 */
+        #fullscreen-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.9); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+            z-index: 100; justify-content: center; align-items: center; flex-direction: column;
+        }
+        
+        .card-wrapper {
+            width: 85vw; max-width: 380px; aspect-ratio: 2.2 / 3.5;
+            perspective: 1500px; cursor: pointer; margin-bottom: 20px;
+        }
+        .card-inner {
+            position: relative; width: 100%; height: 100%; text-align: center;
+            transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275); transform-style: preserve-3d;
+        }
+        .card-wrapper.flipped .card-inner { transform: rotateY(180deg); }
+        
+        .card-front, .card-back {
+            position: absolute; width: 100%; height: 100%; backface-visibility: hidden;
+            border-radius: 20px; border: 8px solid #fdfdfd; 
+            display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 25px;
+        }
+        
+        .card-back { background: var(--card-back-bg); background-size: cover; background-position: center; box-shadow: 0 10px 40px rgba(255,255,255,0.1); }
+        .card-front { transform: rotateY(180deg); color: #222; }
+        
+        .card-level { font-size: 14px; font-weight: bold; margin-bottom: 15px; padding: 6px 18px; border-radius: 20px; letter-spacing: 1px;}
+        .card-title { font-size: 22px; font-weight: 800; margin-bottom: 25px; text-align: center;}
+        .card-text { font-size: 18px; line-height: 1.6; text-align: left; font-weight: 600;}
+        
+        .lv1-front { background: var(--lv1-bg); box-shadow: 0 0 30px var(--lv1-glow); }
+        .lv2-front { background: var(--lv2-bg); box-shadow: 0 0 30px var(--lv2-glow); }
+        .lv3-front { background: var(--lv3-bg); box-shadow: 0 0 30px var(--lv3-glow); }
+        
+        .lv1-text { color: #0284c7; background: rgba(255,255,255,0.8); }
+        .lv2-text { color: #c2410c; background: rgba(255,255,255,0.8); }
+        .lv3-text { color: #be123c; background: rgba(255,255,255,0.8); }
+
+        .overlay-hint { color: rgba(255,255,255,0.8); font-size: 16px; letter-spacing: 2px; }
+
+        /* ===== iPad 與大螢幕專屬優化 ===== */
+        @media (min-width: 768px) {
+            .setup-title { font-size: 48px; }
+            .setup-subtitle { font-size: 20px; }
+            .deck-visual { max-width: 340px; }
+            .click-hint { font-size: 20px; bottom: -60px; }
+            .card-wrapper { max-width: 500px; }
+            .card-title { font-size: 30px; margin-bottom: 35px;}
+            .card-text { font-size: 24px; line-height: 1.8; }
+            .card-level { font-size: 18px; padding: 8px 24px;}
+            #controls button { padding: 18px 36px; font-size: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="setup-screen">
+        <div class="setup-title">心動航線</div>
+        <div class="setup-subtitle">從遠方 到身邊</div>
+        <div class="file-input-wrapper glass-panel">
+            <label for="bg-upload" style="cursor:pointer; color:#f8e5b4; display:block; padding:10px;">
+                <div style="font-size: 35px; margin-bottom: 15px;">✨</div>
+                點擊此處上傳專屬照片作為卡背<br><span style="font-size: 13px; color:#aaa; display:block; margin-top:8px;">(若無上傳將使用午夜星空背景)</span>
+            </label>
+            <input type="file" id="bg-upload" accept="image/*" style="display:none" onchange="previewImage(event)">
+        </div>
+        <button onclick="startGame()">進入航線</button>
+    </div>
+
+    <div id="game-screen">
+        <div id="status-bar" class="glass-panel">
+            已探索: <span id="drawn-count" style="color:#f8e5b4; font-weight:bold; font-size:18px;">0</span> / 剩餘未知: <span id="remain-count">90</span>
+        </div>
+
+        <div id="deck-container" onclick="drawCard()">
+            <div class="deck-visual" id="deck-visual-elem">
+                <div class="click-hint">點擊抽取願望</div>
+            </div>
+        </div>
+
+        <div id="controls">
+            <button onclick="closeFullscreen()" id="next-btn" style="display:none; background:#f8e5b4; color:#0a0a1a; font-weight:bold;">完成任務 / 收起卡片</button>
+            <button onclick="location.reload()" style="border-color: #555; color: #888;">重新洗牌</button>
+        </div>
+    </div>
+
+    <div id="fullscreen-overlay">
+        <div class="card-wrapper" id="active-card" onclick="flipCard()">
+            <div class="card-inner">
+                <div class="card-back" id="card-back-elem"></div>
+                <div class="card-front" id="card-front-elem">
+                    <div class="card-level" id="card-lv-text">Level</div>
+                    <div class="card-title" id="card-title-text">標題</div>
+                    <div class="card-text" id="card-desc-text">內容</div>
+                </div>
+            </div>
+        </div>
+        <div class="overlay-hint" id="overlay-hint">輕觸卡牌 翻開心跳</div>
+    </div>
+
+<script>
+    // 完整 90 張卡片資料庫
+    const allCards = [
+        { lv: 1, title: '【行動任務｜黑歷史朗讀】', text: '請翻出我曖昧期說過最客套的一句話，用戲劇化語氣唸給我聽。' },
+        { lv: 1, title: '【真心話｜未來預見】', text: '我想知道，如果可以預見未來，你最想看到我們一年後的什麼畫面？' },
+        { lv: 1, title: '【行動任務｜十指緊扣】', text: '請和我十指緊扣 1 分鐘，並告訴我一個你的小秘密。' },
+        { lv: 1, title: '【真心話｜初見重溫】', text: '請閉上眼，詳細形容今天見到我第一眼時，我的穿搭與表情。' },
+        { lv: 1, title: '【行動任務｜氣音耳語】', text: '請靠在我的耳邊，用氣音告訴我，我身上最吸引你的特質是什麼。' },
+        { lv: 1, title: '【真心話｜回憶定格】', text: '遠距離時，哪一個瞬間讓你最想立刻飛到我身邊？' },
+        { lv: 1, title: '【行動任務｜掌心傳溫】', text: '請把手心貼著我的手心，我們一起閉上眼，安靜感受彼此的體溫 1 分鐘。' },
+        { lv: 1, title: '【行動任務｜彩虹屁大賽】', text: '請跟我輪流說出對方的三個優點，先詞窮的人要被彈額頭喔！' },
+        { lv: 1, title: '【真心話｜默契考驗】', text: '我們一起數到三，同時說出我最愛的飲料，如果你答錯了，請親我的臉頰一下。' },
+        { lv: 1, title: '【真心話｜浪漫時刻】', text: '你覺得在我們這段關係中，最浪漫的一刻是什麼？' },
+        { lv: 1, title: '【真心話｜未來機票】', text: '如果明天能一起出國，你最想帶我去哪裡？為什麼？' },
+        { lv: 1, title: '【行動任務｜專屬情歌】', text: '請放一首會讓你想到我的歌，我們一起聽完這首歌的副歌。' },
+        { lv: 1, title: '【真心話｜照片故事】', text: '請翻出一張我以前發過的照片，並問我當時拍照的背景故事。' },
+        { lv: 1, title: '【行動任務｜手背印記】', text: '請在我的手背上輕輕落下一吻。' },
+        { lv: 1, title: '【真心話｜靈魂拷問】', text: '如果人生重來，你還是會選擇與我相遇嗎？' },
+        { lv: 1, title: '【行動任務｜臉部觀察】', text: '請近距離盯著我的眼睛 30 秒，然後說出你發現了什麼細節。' },
+        { lv: 1, title: '【行動任務｜摸頭安撫】', text: '請溫柔地揉揉我的頭髮 20 秒，並給我一個微笑。' },
+        { lv: 1, title: '【真心話｜專屬稱呼】', text: '你最喜歡怎麼稱呼我？現在就用那個稱呼叫我一聲吧。' },
+        { lv: 1, title: '【行動任務｜氣味初探】', text: '請靠近我的肩膀，深呼吸聞一下我身上的味道，並告訴我你的感覺。' },
+        { lv: 1, title: '【真心話｜夢境分享】', text: '請跟我分享一個你曾經夢見過我的場景。' },
+        { lv: 1, title: '【行動任務｜小默契】', text: '我們不說話，數到三用手勢比出同一個數字（1-5），看看有沒有默契。' },
+        { lv: 1, title: '【真心話｜真實心聲】', text: '告訴我，你今天出門見我前，最緊張的一個念頭是什麼？' },
+        { lv: 1, title: '【行動任務｜肩頸放鬆】', text: '請幫我按摩肩膀 1 分鐘，讓我放鬆一下。' },
+        { lv: 1, title: '【真心話｜家的定義】', text: '對你來說，「家」的感覺是什麼？' },
+        { lv: 1, title: '【行動任務｜對話反轉】', text: '請模仿我最常說的一句話，或是最常用的貼圖表情。' },
+        { lv: 1, title: '【行動任務｜手心密碼】', text: '請在我的手心寫一個字，讓我猜猜是什麼。' },
+        { lv: 1, title: '【真心話｜依賴特質】', text: '遠距離期間，你最依賴我的什麼特質？' },
+        { lv: 1, title: '【行動任務｜衣角依戀】', text: '接下來的 3 回合，請你用一隻手一直拉著我的衣角。' },
+        { lv: 1, title: '【真心話｜禮物想像】', text: '如果不限金額，你現在最想送我什麼禮物？' },
+        { lv: 1, title: '【行動任務｜靈魂凝視】', text: '請靜靜看著我的眼睛 1 分鐘，不准說話，直到我們其中有人笑場。' },
+
+        { lv: 2, title: '【行動任務｜人體沙發】', text: '請讓我坐在你的腿上（或你坐在我腿上），直到下一張任務牌被抽出。' },
+        { lv: 2, title: '【行動任務｜心跳監測】', text: '請將手貼在我的胸口，感受我的心跳 30 秒。' },
+        { lv: 2, title: '【行動任務｜頸間呼吸】', text: '請把臉埋在我的頸間深呼吸 3 次，感受我的氣息。' },
+        { lv: 2, title: '【行動任務｜指尖素描】', text: '請用指尖輕輕描畫我五官的輪廓。' },
+        { lv: 2, title: '【行動任務｜背後擁抱】', text: '請從背後緊緊環抱我，將下巴靠在我的肩膀上 30 秒。' },
+        { lv: 2, title: '【行動任務｜鼻尖磨蹭】', text: '請將你的額頭貼著我的額頭，輕輕磨蹭彼此的鼻尖。' },
+        { lv: 2, title: '【行動任務｜盲測餵食】', text: '請讓我閉上眼，然後餵我吃一口零食，讓我猜是什麼。' },
+        { lv: 2, title: '【行動任務｜體溫分享】', text: '請將你的雙手伸進我的口袋（或外套內）取暖 30 秒。' },
+        { lv: 2, title: '【行動任務｜膝枕時光】', text: '請讓我躺在你的腿上，並輕輕梳理我的頭髮 1 分鐘。' },
+        { lv: 2, title: '【行動任務｜腰間環繞】', text: '請雙手環住我的腰，將頭埋進我的懷裡。' },
+        { lv: 2, title: '【行動任務｜親吻連線】', text: '請從我的手心、手腕，一路親吻到我的手肘。' },
+        { lv: 2, title: '【行動任務｜耳垂誘惑】', text: '請輕輕捏一下我的耳垂，並在我的耳邊呼氣。' },
+        { lv: 2, title: '【行動任務｜同步呼吸】', text: '請閉上眼擁抱我，並調整呼吸，直到我們完全一致。' },
+        { lv: 2, title: '【行動任務｜臉頰熱度】', text: '請用雙手捧起我的臉，親吻我的額頭與雙頰。' },
+        { lv: 2, title: '【行動任務｜手心之吻】', text: '請看著我的眼睛，深深親吻我的手心。' },
+        { lv: 2, title: '【真心話｜視覺記憶】', text: '第一次視訊時，你對我的什麼部位印象最深？' },
+        { lv: 2, title: '【行動任務｜依靠指令】', text: '接下來的遊戲，請你一直靠在我的懷裡進行。' },
+        { lv: 2, title: '【行動任務｜小腿交纏】', text: '坐在一起時，請將你的雙腿與我的雙腿緊緊交疊。' },
+        { lv: 2, title: '【行動任務｜氣味辨識】', text: '請蒙住你的眼，靠味道猜出我身上的哪件衣物是我的。' },
+        { lv: 2, title: '【行動任務｜背部按摩】', text: '請讓我趴下，幫我輕輕按壓背部 2 分鐘。' },
+        { lv: 2, title: '【行動任務｜鎖骨輕吻】', text: '請輕輕親吻我的鎖骨，並停留 3 秒。' },
+        { lv: 2, title: '【行動任務｜髮間纏綿】', text: '請親吻我的髮旋，並低聲對我說一句情話。' },
+        { lv: 2, title: '【行動任務｜手腕脈搏】', text: '請親吻我的脈搏處，感受那裡的跳動。' },
+        { lv: 2, title: '【行動任務｜眼神挑逗】', text: '請用最深情的眼神盯著我，直到我害羞閃躲。' },
+        { lv: 2, title: '【行動任務｜衣領拉扯】', text: '請輕輕拉住我的衣領，將我拉近你。' },
+        { lv: 2, title: '【行動任務｜搞怪合照】', text: '如果現在要合照，你想擺什麼甜蜜姿勢？請帶我一起拍一張。' },
+        { lv: 2, title: '【行動任務｜皮膚接觸】', text: '請用你的臉頰去貼著我的臉頰，停留 20 秒。' },
+        { lv: 2, title: '【行動任務｜無聲告白】', text: '擁抱我，並用手指在我的背上寫下「我愛你」。' },
+        { lv: 2, title: '【行動任務｜指縫交扣】', text: '請與我十指交扣並緊緊握住，直到有一方打出下一張牌。' },
+        { lv: 2, title: '【行動任務｜肩膀留印】', text: '請在我的肩膀上輕輕咬一口（不可以太用力喔）。' },
+
+        { lv: 3, title: '【終極願望｜深情長吻】', text: '請與我進行一個超過 30 秒的法式深吻。' },
+        { lv: 3, title: '【終極願望｜蒙眼感官】', text: '請蒙住我的眼，用嘴唇輕觸我臉上的三個敏感處。' },
+        { lv: 3, title: '【終極願望｜跨坐對視】', text: '請跨坐在我腿上（或讓我跨坐），雙手環住我的脖子，近距離對視 10 秒。' },
+        { lv: 3, title: '【終極願望｜禁地探索】', text: '請親吻我身上一個平常不會被親到的地方。' },
+        { lv: 3, title: '【終極願望｜耳語挑逗】', text: '請在我耳邊描述一件，你待會想跟我一起在床上做的事。' },
+        { lv: 3, title: '【終極願望｜絕對主導】', text: '接下來的 3 分鐘，我會完全聽從你的任何指令。請下令吧。' },
+        { lv: 3, title: '【終極願望｜解開防備】', text: '請幫我解開一顆釦子（或拉下一點拉鍊）。' },
+        { lv: 3, title: '【終極願望｜沙發霸氣】', text: '請把我壓在沙發上，近距離感受彼此的真實體溫。' },
+        { lv: 3, title: '【終極願望｜頸部標記】', text: '請在我的脖子上留下一個溫熱的吻，持續 10 秒。' },
+        { lv: 3, title: '【終極願望｜體溫滲透】', text: '請稍微解開我們的衣領，讓兩人的鎖骨或胸口肌膚輕輕貼合 20 秒。' },
+        { lv: 3, title: '【終極願望｜盲測親吻】', text: '請蒙住你的眼，讓我親吻你，你要猜出我親了哪裡。' },
+        { lv: 3, title: '【私密大哉問｜害羞幻想】', text: '遠距離時，你對我的什麼幻想最讓你害羞？請誠實告訴我。' },
+        { lv: 3, title: '【終極願望｜感官挑逗】', text: '請輕輕親吻或輕咬我的耳垂與頸側。' },
+        { lv: 3, title: '【終極願望｜呼吸交換】', text: '親吻前，請讓我們的嘴唇微張但不碰觸，交換彼此的呼吸 10 秒。' },
+        { lv: 3, title: '【終極願望｜背部游走】', text: '請將雙手伸進我的衣服裡，輕撫我的背部。' },
+        { lv: 3, title: '【私密大哉問｜曲線探索】', text: '誠實告訴我，你最喜歡我身上哪個部位的曲線？' },
+        { lv: 3, title: '【終極願望｜腰線輕撫】', text: '請將雙手沿著我的腰線，慢慢上下游走。' },
+        { lv: 3, title: '【終極願望｜敏感搜尋】', text: '請找出我身上最怕癢或最敏感的一個點。' },
+        { lv: 3, title: '【終極願望｜咬唇挑逗】', text: '在我們親吻的過程中，請輕輕咬一下我的下唇。' },
+        { lv: 3, title: '【終極願望｜換裝遊戲】', text: '請指定我換上（或脫下）一件衣物。' },
+        { lv: 3, title: '【終極願望｜雙唇解鎖】', text: '請坐在我腿上，用你的嘴唇幫我脫掉一隻襪子。' },
+        { lv: 3, title: '【終極願望｜身體素描】', text: '請用嘴唇當畫筆，在我的胸口或脖子上畫一個愛心。' },
+        { lv: 3, title: '【終極願望｜低音誘惑】', text: '請用最沙啞性感的聲音，在我的耳邊叫我的名字。' },
+        { lv: 3, title: '【終極願望｜腿部探索】', text: '請將手放在我的大腿上，慢慢向上輕撫。' },
+        { lv: 3, title: '【終極願望｜吻的延伸】', text: '請從我的嘴角開始，一路親吻到我的鎖骨。' },
+        { lv: 3, title: '【終極願望｜主控權交出】', text: '我現在宣告放棄抵抗，由你決定接下來 5 分鐘要對我做什麼。' },
+        { lv: 3, title: '【終極願望｜氣息捕捉】', text: '請將頭埋在我的胸口，聽聽我因為你而加速的心跳。' },
+        { lv: 3, title: '【私密大哉問｜大尺度秘密】', text: '說出一個你在我們視訊時，曾經想過但不敢說的親密要求。' },
+        { lv: 3, title: '【終極願望｜身體紀念】', text: '請在我身上找一個你最愛的位子，留下一個紅印。' },
+        { lv: 3, title: '【終極願望｜最終選擇】', text: '請現在就帶我去臥室，終止這場遊戲；或者，你可以選擇再抽一張 Lv3 繼續冒險。' }
+    ];
+
+    let deck = [...allCards].sort(() => Math.random() - 0.5);
+    let drawnCount = 0;
+    let isFlipped = false;
+
+    function previewImage(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.documentElement.style.setProperty('--card-back-bg', `url('${e.target.result}')`);
+                alert('專屬照片設定成功！');
+            }
+            reader.readAsDataURL(file);
+        }
+    }
+
+    function updateStats() {
+        document.getElementById('drawn-count').innerText = drawnCount;
+        document.getElementById('remain-count').innerText = deck.length;
+        if(deck.length === 0) {
+            document.getElementById('deck-visual-elem').style.opacity = '0.3';
+            document.querySelector('.click-hint').innerText = '航線已抵達終點';
+        }
+    }
+
+    function startGame() {
+        document.getElementById('setup-screen').style.display = 'none';
+        document.getElementById('game-screen').style.display = 'block';
+        updateStats();
+    }
+
+    function drawCard() {
+        if (deck.length === 0) return alert('卡牌已經全部抽完囉！');
+        
+        const currentCard = deck.pop();
+        drawnCount++;
+        
+        const frontElem = document.getElementById('card-front-elem');
+        const lvText = document.getElementById('card-lv-text');
+        
+        frontElem.className = 'card-front'; 
+        lvText.className = 'card-level';
+        
+        frontElem.classList.add(`lv${currentCard.lv}-front`);
+        lvText.classList.add(`lv${currentCard.lv}-text`);
+        lvText.innerText = `LEVEL ${currentCard.lv}`;
+        
+        document.getElementById('card-title-text').innerText = currentCard.title;
+        document.getElementById('card-desc-text').innerText = currentCard.text;
+
+        isFlipped = false;
+        document.getElementById('active-card').classList.remove('flipped');
+        document.getElementById('fullscreen-overlay').style.display = 'flex';
+        document.getElementById('overlay-hint').style.display = 'block';
+        document.getElementById('next-btn').style.display = 'none';
+    }
+
+    function flipCard() {
+        if (!isFlipped) {
+            document.getElementById('active-card').classList.add('flipped');
+            document.getElementById('overlay-hint').style.display = 'none';
+            setTimeout(() => {
+                document.getElementById('next-btn').style.display = 'block';
+            }, 800);
+            isFlipped = true;
+        }
+    }
+
+    function closeFullscreen() {
+        document.getElementById('fullscreen-overlay').style.display = 'none';
+        updateStats();
+    }
+</script>
+
+</body>
+</html>
