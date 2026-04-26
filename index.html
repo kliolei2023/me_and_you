@@ -92,7 +92,6 @@
         .deck-visual:active { transform: scale(0.95); }
         .click-hint { position: absolute; bottom: -50px; width: 100%; text-align: center; color: #aaa; font-size: 16px; letter-spacing: 2px;}
 
-        /* 底層按鈕區（只保留重新洗牌） */
         #controls {
             position: absolute; bottom: 0; width: 100%;
             padding-bottom: max(30px, env(safe-area-inset-bottom)); 
@@ -100,23 +99,21 @@
         }
         #controls button { padding: 12px 24px; font-size: 16px; }
 
-        /* 全螢幕翻牌區 */
         #fullscreen-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             background: rgba(0, 0, 0, 0.9); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
             z-index: 100; justify-content: center; align-items: center; flex-direction: column;
         }
         
-        /* 修復後的上層按鈕（收起卡片） */
         #next-btn {
             display: none; 
             position: absolute; 
-            bottom: max(40px, env(safe-area-inset-bottom)); /* 固定在最上方遮罩的底部 */
+            bottom: max(40px, env(safe-area-inset-bottom));
             background: #f8e5b4; 
             color: #0a0a1a; 
             font-weight: bold;
             box-shadow: 0 4px 15px rgba(248, 229, 180, 0.3);
-            z-index: 101; /* 確保在所有物件最上層 */
+            z-index: 101; 
         }
 
         .card-wrapper {
@@ -171,7 +168,7 @@
         <div class="setup-title">丫頭&獅子</div>
         <div class="setup-subtitle">此刻在身邊</div>
         <div class="file-input-wrapper glass-panel">
-            <label for="bg-upload" style="cursor:pointer; color:#f8e5b4; display:block; padding:10px;">
+            <label for="bg-upload" id="upload-label" style="cursor:pointer; color:#f8e5b4; display:block; padding:10px;">
                 <div style="font-size: 35px; margin-bottom: 15px;">✨</div>
                 點擊此處上傳專屬照片作為卡背<br><span style="font-size: 13px; color:#aaa; display:block; margin-top:8px;">(若無上傳將使用午夜星空背景)</span>
             </label>
@@ -192,7 +189,7 @@
         </div>
 
         <div id="controls">
-            <button onclick="location.reload()" style="border-color: #555; color: #888;">重新洗牌</button>
+            <button onclick="resetGame()" style="border-color: #555; color: #888;">重新洗牌</button>
         </div>
     </div>
 
@@ -212,7 +209,7 @@
     </div>
 
 <script>
-    // 完整 90 張卡片資料庫
+    // 完整修復的卡片資料庫
     const allCards = [
         { lv: 1, title: '【行動任務｜黑歷史朗讀】', text: '請翻出我曖昧期說過最客套的一句話，用戲劇化語氣唸給我聽。' },
         { lv: 1, title: '【真心話｜未來預見】', text: '我想知道，如果可以預見未來，你最想看到我們一年後的什麼畫面？' },
@@ -287,7 +284,7 @@
         { lv: 3, title: '【終極願望｜衣領牽引】', text: '請用力拽住我的衣領，把我霸道地拉向你，然後給我一個超過 10 秒的侵略性深吻。' },
         { lv: 3, title: '【終極願望｜跨坐對視】', text: '請跨坐在我腿上（或讓我跨坐），雙手環住我的脖子，近距離對視 10 秒。' },
         { lv: 3, title: '【終極願望｜禁地探索】', text: '請親吻我身上一個平常不會被親到的地方。' },
-        { lv: 3, title: '【終極願望｜盲目探索】', text: '請你閉上眼睛，只用雙手摸索我的臉頰、脖子，一路往下到鎖骨，然後憑感覺，準確地親在我的鎖骨上。' }
+        { lv: 3, title: '【終極願望｜盲目探索】', text: '請你閉上眼睛，只用雙手摸索我的臉頰、脖子，一路往下到鎖骨，然後憑感覺，準確地親在我的鎖骨上。' }, // 這裡補上逗號了！
         { lv: 3, title: '【終極願望｜耳語挑逗】', text: '請在我耳邊描述一件，你待會想跟我一起在床上做的事。' },
         { lv: 3, title: '【終極願望｜絕對主導】', text: '接下來的 3 分鐘，我會完全聽從你的任何指令。請下令吧。' },
         { lv: 3, title: '【終極願望｜耳邊吐氣】', text: '請輕輕含住我的耳垂 3 秒鐘，然後在我的耳邊用最輕柔的氣音說：「我終於抱到你了。」' },
@@ -325,14 +322,19 @@
     let deck = [...allCards].sort(() => Math.random() - 0.5);
     let drawnCount = 0;
     let isFlipped = false;
+    let isOverlayOpen = false; // 新增：防連點機制
 
+    // 照片上傳優化
     function previewImage(event) {
         const file = event.target.files[0];
         if (file) {
             const reader = new FileReader();
             reader.onload = function(e) {
                 document.documentElement.style.setProperty('--card-back-bg', `url('${e.target.result}')`);
-                alert('專屬照片設定成功！');
+                document.getElementById('upload-label').innerHTML = `
+                    <div style="font-size: 35px; margin-bottom: 15px;">💖</div>
+                    專屬照片已載入！<br><span style="font-size: 13px; color:#aaa; display:block; margin-top:8px;">(點擊可重新上傳)</span>
+                `;
             }
             reader.readAsDataURL(file);
         }
@@ -353,18 +355,29 @@
         updateStats();
     }
 
+    // 抽卡功能防呆與順暢度優化
     function drawCard() {
-        if (deck.length === 0) return alert('卡牌已經全部抽完囉！');
+        if (deck.length === 0) {
+            alert('卡牌已經全部抽完囉！');
+            return;
+        }
+        if (isOverlayOpen) return; // 鎖定：防止狂點
+        isOverlayOpen = true; 
         
         const currentCard = deck.pop();
         drawnCount++;
         
         const frontElem = document.getElementById('card-front-elem');
         const lvText = document.getElementById('card-lv-text');
+        const cardInner = document.querySelector('.card-inner');
+        const activeCard = document.getElementById('active-card');
+        
+        // 消除切換時的殘影
+        cardInner.style.transition = 'none';
+        activeCard.classList.remove('flipped');
         
         frontElem.className = 'card-front'; 
         lvText.className = 'card-level';
-        
         frontElem.classList.add(`lv${currentCard.lv}-front`);
         lvText.classList.add(`lv${currentCard.lv}-text`);
         lvText.innerText = `LEVEL ${currentCard.lv}`;
@@ -373,10 +386,14 @@
         document.getElementById('card-desc-text').innerText = currentCard.text;
 
         isFlipped = false;
-        document.getElementById('active-card').classList.remove('flipped');
-        document.getElementById('fullscreen-overlay').style.display = 'flex';
-        document.getElementById('overlay-hint').style.display = 'block';
         document.getElementById('next-btn').style.display = 'none';
+        
+        // 延遲恢復動畫
+        setTimeout(() => {
+            cardInner.style.transition = 'transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            document.getElementById('fullscreen-overlay').style.display = 'flex';
+            document.getElementById('overlay-hint').style.display = 'block';
+        }, 50);
     }
 
     function flipCard() {
@@ -393,6 +410,19 @@
     function closeFullscreen() {
         document.getElementById('fullscreen-overlay').style.display = 'none';
         updateStats();
+        isOverlayOpen = false; // 解鎖
+    }
+
+    // 新增：重新洗牌但不洗掉照片的功能
+    function resetGame() {
+        if(confirm('確定要將所有卡牌重新洗牌嗎？')) {
+            deck = [...allCards].sort(() => Math.random() - 0.5);
+            drawnCount = 0;
+            isOverlayOpen = false;
+            document.getElementById('deck-visual-elem').style.opacity = '1';
+            document.querySelector('.click-hint').innerText = '點擊抽卡';
+            updateStats();
+        }
     }
 </script>
 
